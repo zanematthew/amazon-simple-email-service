@@ -51,8 +51,6 @@ Class NewsletterRecipient extends zMCustomPostTypeBase{
 
         Security::verifyPostSubmission( $_POST[ $this->my_cpt ] );
 
-        // $defaul_location['state'] = $_POST['user_state'];
-        // $result_location = add_user_meta( $user_obj->ID, 'user_default_location', $defaul_location, true );
         $email = $_POST['email'];
 
         $duplicate = $this->isDuplicateEmail( $email );

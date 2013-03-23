@@ -25,9 +25,6 @@ Class Newsletter extends zMCustomPostTypeBase{
         $this->share_description = "Get weekly or Monthly newsletters regarding what BMX Events are going on in your Town.";
         $this->my_cpt = strtolower( __CLASS__ );
 
-        add_action( 'wp_ajax_nopriv_newsletterSettings', array( &$this, 'newsletterSettings' ) );
-        add_action( 'wp_ajax_newsletterSettings', array( &$this, 'newsletterSettings' ) );
-
         add_action( 'init', array( &$this, 'init' ) );
         add_action( 'admin_menu', array( &$this, 'adminMenu' ) );
         add_action( 'admin_init', array( &$this, 'adminInit') );
@@ -40,59 +37,7 @@ Class Newsletter extends zMCustomPostTypeBase{
     }
 
 
-    /**
-     * Deploy Meta Section
-     */
-    public function deployMetaSection() {
-        wp_enqueue_style( 'admin', plugin_dir_url( dirname( __FILE__ ) ) . 'assets/newsletter_admin.css' );
-
-        add_meta_box(
-            'some_meta_box_name',
-            'Deploy',
-            array( &$this, 'renderDeployMetaBox' ),
-            $this->my_cpt
-        );
-    }
-
-
-    /**
-     * Render Meta Box content
-     */
-    public function renderDeployMetaBox(){?>
-        <div id="taxonomy-type" class="categorydiv deploy-meta-box">
-            <ul id="type-tabs" class="category-tabs">
-                <li class="tabs"><a href="#deploy-list" tabindex="3">Recipient Lists</a></li>
-                <li class=""><a href="#deploy-stats" tabindex="3">Stats</a></li>
-            </ul>
-            <div id="deploy-list" class="tabs-panel">
-                <?php $terms = get_terms( 'list', array( 'hide_empty' => false ) ) ;?>
-                <?php if ( $terms ) : ?>
-                    <ul class="deploy-meta-box-list">
-                    <?php foreach( $terms as $term ) : ?>
-                        <li>
-                            <input type="checkbox" name="list[][<?php print $term->slug; ?>]" value="<?php print $term->term_id; ?>" id="<?php print $term->slug; ?>" />
-                            <label for="<?php print $term->slug;?>"><?php print $term->name; ?> (<?php print $term->count; ?>)</label>
-                        </li>
-                    <?php endforeach; ?>
-                    </ul>
-                <?php endif;?>
-            </div>
-            <div id="deploy-stats" class="tabs-panel" style="display:none;">
-                <?php global $post; print "sent time wtf: " . get_post_meta( $post->ID, 'email_sent_time', true ); ?>
-            </div>
-        </div>
-        <input type="button" value="Preview" class="button preview-handle" data-action="previewEmail"/>
-        <input name="deploy_test_email" type="button" class="button " id="dim" value="Send to test Email" />
-        <a href="#" class="button deploy-handle">Deploy</a>
-        <label>Test Email</label>
-        <input name="bmx_re_test_email" id="bmx_re_test_email" type="text" value="<?php print get_option('bmx_re_test_email'); ?>">
-        <div class="zm-status-updated status-target" style="display: none;"></div><iframe src="" class="preview-target" style="display: none;width: 100%; min-height: 50%; border: 1px dashed #CCC;"></iframe>
-    <?php }
-
-
     public function adminInit(){
-
-        add_action( 'add_meta_boxes', array( &$this, 'deployMetaSection' ) );
         add_action( 'wp_ajax_sendEmail', array( &$this, 'sendEmail' ) );
         add_action( 'wp_ajax_previewEmail', array( &$this, 'previewEmail' ) );
         add_action( 'wp_ajax_deployEmails', array( &$this, 'deployEmails' ) );
@@ -129,27 +74,27 @@ Class Newsletter extends zMCustomPostTypeBase{
         $sub_menu_pages = array(
             array(
                 'parent_slug' => $parent,
-                'page_title' => 'Recipients',
-                'menu_title' => 'Recipients',
+                'page_title' => 'Recipients &amp; List',
+                'menu_title' => 'Recipients &amp; List',
                 'capability' => 'manage_options',
                 'menu_slug' => 'recipients',
-                'function' => 'recipientsPage'
+                'function' => 'recipientsView'
                 ),
             array(
                 'parent_slug' => $parent,
-                'page_title' => __('List', 'bmx_re'),
-                'menu_title' => __('List', 'bmx_re'),
+                'page_title' => 'Deploy',
+                'menu_title' => 'Deploy',
                 'capability' => 'manage_options',
-                'menu_slug' => 'recipients-list',
-                'function' => 'recipientsList'
+                'menu_slug' => 'recipients-deploy',
+                'function' => 'deployView'
                 ),
             array(
                 'parent_slug' => $parent,
-                'page_title' => __('Settings', 'bmx_re'),
-                'menu_title' => __('Settings', 'bmx_re'),
+                'page_title' => 'Settings',
+                'menu_title' => 'Settings',
                 'capability' => 'manage_options',
                 'menu_slug' => 'newsletter-settings',
-                'function' => 'settingsPage'
+                'function' => 'settingsView'
                 )
             );
 
@@ -163,23 +108,26 @@ Class Newsletter extends zMCustomPostTypeBase{
                 array( &$this, $sub_menu['function'] )
             );
         }
-
     }
 
-    public function settingsPage(){
+
+    public function settingsView(){
         wp_enqueue_style('newsletter_admin-style');
         $this->loadTemplate( 'settings.php', $this->views_dir );
     }
 
-    public function recipientsPage(){
+
+    public function recipientsView(){
         wp_enqueue_script('zm-chosen-script');
         wp_enqueue_style('zm-chosen-style');
         wp_enqueue_style('newsletterrecipient_admin-style');
         $this->loadTemplate( 'recipients.php', $this->views_dir );
     }
 
-    public function recipientsList(){
-        $this->loadTemplate( 'list.php', $this->views_dir );
+
+    public function deployView(){
+        wp_enqueue_script( 'deploy-admin', plugin_dir_url( dirname( __FILE__ ) ) . 'assets/deploy_admin.js', array('jquery') );
+        $this->loadTemplate( 'deploy.php', $this->views_dir );
     }
 
 
@@ -422,6 +370,7 @@ $email = $this->getEventsTemplate( $recipient );
         }
     }
 
+
     public function templateDropDown(){
         global $wpdb;
 
@@ -484,6 +433,7 @@ $email = $this->getEventsTemplate( $recipient );
         return get_option('bmx_re_emails_footer');
     }
 
+
     static public function defaultFooterTpl(){
         $content = self::$instance->defaultFooterText();
 
@@ -501,43 +451,6 @@ $email = $this->getEventsTemplate( $recipient );
         return '<table width="616" border="0" cellpadding="0" cellspacing="0" bgcolor="#e5e5e5" style="background-color:#e5e5e5"><tr><td><p style="text-align: left;color: #454545; font-family: sans-serif,arial;font-size: 11px; line-height: 15px; padding: 10px">'.$content.'</td></tr></table>';
     }
 
-    /**
-     * Return or set the State for a user
-     */
-    public function defaultState( $user_id=null, $state=null ){
-
-        if ( ! is_null( $state ) )
-            update_usermeta( $user_id, 'user_state', $state, $state );
-
-        return get_user_meta( $user_id, 'user_state', true );
-    }
-
-    /**
-     * Prints the Template/markup for the WordPress profile page.
-     */
-    public function userProfile( $user ){
-
-        $state = $this->defaultState( $user->ID );
-
-        ?>
-        <h3>Newsletter Settings</h3>
-        <table class="form-table">
-            <tr>
-                <th><label for="state">Default State</label></th>
-                <td>
-                    <?= Helpers::stateDropDown( $state ); ?>
-                </td>
-            </tr>
-        </table>
-    <?php }
-
-    public function saveExtraProfileEmails( $user_id ) {
-
-        if ( ! current_user_can( 'edit_user', $user_id ) )
-            return false;
-
-        $this->defaultState( $user_id, $_POST['user_state'] );
-    }
 
     public function lastSentTime( $post_id=null ){
 
