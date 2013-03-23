@@ -6,4 +6,8 @@ Created On: February 2, 2013, 11:48 pm */
 
 .newsletter-settings-form input[type="text"] {
     padding: 15px 10px;
-}
+    }
+
+.deploy-meta-box {
+    margin: 0 0 15px;
+    }
