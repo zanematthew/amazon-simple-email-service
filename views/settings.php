@@ -26,18 +26,6 @@
                     <input name="bmx_re_source" id="bmx_re_source" type="text" value="<?php print get_option('bmx_re_source'); ?>" class="input-large" />
                 </div>
             </div>
-            <div class="control-group">
-                <label class="control-label">Test Address</label>
-                <div class="controls">
-                    <input name="bmx_re_test_email" id="bmx_re_test_email" type="text" value="<?php print get_option('bmx_re_test_email'); ?>" class="input-large" />
-                </div>
-            </div>
-            <div class="control-group">
-                <label class="control-label">Template</label>
-                <div class="controls">
-                    <?= Newsletter::templateDropDown(); ?>
-                </div>
-            </div>
         </fielset>
 
         <fieldset>
@@ -56,7 +44,6 @@
         </fieldset>
         <div class="button-container">
             <input name="Submit" type="submit" class="button-primary" value="<?php esc_attr_e('Save Changes'); ?>" />
-            <input name="deploy_emails" type="button" class="button deploy-handle" value="<?php esc_attr_e('Deploy Emails'); ?>" />
         </div>
     </form>
 </div>

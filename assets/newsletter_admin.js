@@ -67,9 +67,18 @@ jQuery(document).ready(function($){
 
         event.preventDefault();
 
+        var list = [];
+
+        $('.deploy-meta-box-list li input[type="checkbox"]').each(function(){
+            if ( $(this).is(':checked') ){
+                list.push( $(this).val() );
+            }
+        });
+
         data = {
             "action": "deployEmails",
-            "template_id": template_id
+            "template_id": template_id,
+            "list": list
         };
 
         $.ajax({

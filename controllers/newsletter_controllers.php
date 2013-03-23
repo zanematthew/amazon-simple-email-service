@@ -25,8 +25,6 @@ Class Newsletter extends zMCustomPostTypeBase{
         $this->share_description = "Get weekly or Monthly newsletters regarding what BMX Events are going on in your Town.";
         $this->my_cpt = strtolower( __CLASS__ );
 
-        // Setup our ajax methods
-
         add_action( 'wp_ajax_nopriv_newsletterSettings', array( &$this, 'newsletterSettings' ) );
         add_action( 'wp_ajax_newsletterSettings', array( &$this, 'newsletterSettings' ) );
 
@@ -39,16 +37,80 @@ Class Newsletter extends zMCustomPostTypeBase{
         $this->subscribe_link = '<a href="' . site_url() . '/newsletter" target="_blank">subscribe</a>';
         $this->unsubscribe_link = '<a href="' . site_url() . '/newsletter?unsubscribe="" target="_blank">unsubscribe</a>';
         $this->views_dir = plugin_dir_path( dirname( __FILE__ ) ) . 'views/';
+    }
 
-        /**
-         * Our parent construct has the init's for register_post_type
-         * register_taxonomy and many other usefullness.
-         * @todo automate this?
-         */
+
+    /**
+     * Deploy Meta Section
+     */
+    public function deployMetaSection() {
+        wp_enqueue_style( 'admin', plugin_dir_url( dirname( __FILE__ ) ) . 'assets/newsletter_admin.css' );
+
+        add_meta_box(
+            'some_meta_box_name',
+            'Deploy',
+            array( &$this, 'renderDeployMetaBox' ),
+            $this->my_cpt
+        );
+    }
+
+
+    /**
+     * Render Meta Box content
+     */
+    public function renderDeployMetaBox(){?>
+        <div id="taxonomy-type" class="categorydiv deploy-meta-box">
+            <ul id="type-tabs" class="category-tabs">
+                <li class="tabs"><a href="#deploy-list" tabindex="3">Recipient Lists</a></li>
+                <li class=""><a href="#deploy-stats" tabindex="3">Stats</a></li>
+            </ul>
+            <div id="deploy-list" class="tabs-panel">
+                <?php $terms = get_terms( 'list', array( 'hide_empty' => false ) ) ;?>
+                <?php if ( $terms ) : ?>
+                    <ul class="deploy-meta-box-list">
+                    <?php foreach( $terms as $term ) : ?>
+                        <li>
+                            <input type="checkbox" name="list[][<?php print $term->slug; ?>]" value="<?php print $term->term_id; ?>" id="<?php print $term->slug; ?>" />
+                            <label for="<?php print $term->slug;?>"><?php print $term->name; ?> (<?php print $term->count; ?>)</label>
+                        </li>
+                    <?php endforeach; ?>
+                    </ul>
+                <?php endif;?>
+            </div>
+            <div id="deploy-stats" class="tabs-panel" style="display:none;">
+                <?php global $post; print "sent time wtf: " . get_post_meta( $post->ID, 'email_sent_time', true ); ?>
+            </div>
+        </div>
+        <input type="button" value="Preview" class="button preview-handle" data-action="previewEmail"/>
+        <input name="deploy_test_email" type="button" class="button " id="dim" value="Send to test Email" />
+        <a href="#" class="button deploy-handle">Deploy</a>
+        <label>Test Email</label>
+        <input name="bmx_re_test_email" id="bmx_re_test_email" type="text" value="<?php print get_option('bmx_re_test_email'); ?>">
+        <div class="zm-status-updated status-target" style="display: none;"></div><iframe src="" class="preview-target" style="display: none;width: 100%; min-height: 50%; border: 1px dashed #CCC;"></iframe>
+    <?php }
+
+
+    public function adminInit(){
+
+        add_action( 'add_meta_boxes', array( &$this, 'deployMetaSection' ) );
         add_action( 'wp_ajax_sendEmail', array( &$this, 'sendEmail' ) );
         add_action( 'wp_ajax_previewEmail', array( &$this, 'previewEmail' ) );
         add_action( 'wp_ajax_deployEmails', array( &$this, 'deployEmails' ) );
+
+        $fields = array(
+            'bmx_re_key',
+            'bmx_re_secret',
+            'bmx_re_source',
+            'bmx_re_test_email',
+            'bmx_re_emails_template_id',
+            'bmx_re_emails_footer'
+            );
+
+        foreach( $fields as $field ) {
+            register_setting('wpmc_plugin_options', $field );
+        }
     }
+
 
     public function init(){
         if ( isset( $_GET['opt_out'] ) ){
@@ -121,28 +183,6 @@ Class Newsletter extends zMCustomPostTypeBase{
     }
 
 
-    public function deployNewsLetterMeta(){
-        // $this->loadTemplate( 'deploy-news-letter-meta.php', $this->views_dir );
-        print 'here';
-    }
-
-        public function adminInit(){
-
-        $fields = array(
-            'bmx_re_key',
-            'bmx_re_secret',
-            'bmx_re_source',
-            'bmx_re_test_email',
-            'bmx_re_emails_template_id',
-            'bmx_re_emails_footer'
-            );
-
-        foreach( $fields as $field ) {
-            register_setting('wpmc_plugin_options', $field );
-        }
-
-    }
-
     /**
      * Each user gets a custom email based on their settings, default is to
      * build the email based on the venues in the users state as specified
@@ -157,7 +197,7 @@ Class Newsletter extends zMCustomPostTypeBase{
      * @return Array consisting of the email subject, plain_text and body
      * @note This is designed to be used via an ajax request?
      */
-    static public function getTemplate( $user_email=null, $template_id=null ){
+    static public function getEventsTemplate( $user_email=null, $template_id=null ){
 
         if ( ! isset( $_POST['template_id'] ) ){
             $template_id = get_option( 'bmx_re_emails_template_id' );
@@ -176,14 +216,6 @@ Class Newsletter extends zMCustomPostTypeBase{
         }
 
         $user_obj = get_user_by( 'email', $user_email );
-
-        if ( ! $user_obj )
-            return '<strong>This email is not in your subscribers list.</strong>';
-
-        $opt_in = get_user_meta( $user_obj->ID, 'opt_in', true );
-
-        if ( ! $opt_in )
-            return '<div class="notice-container"><p>This email address is <strong>not in</strong> the opt in list.</p></div>';
 
         $email = array();
 
@@ -271,7 +303,14 @@ Class Newsletter extends zMCustomPostTypeBase{
     }
 
     /**
+     * Sends a single email using AWS SES SDK
      *
+     * SES Documentation: http://docs.amazonwebservices.com/AWSSDKforPHP/latest/#m=AmazonSES/send_email
+     *
+     * @subpackage AJAX
+     * @param $recipient
+     * @param $is_ajax
+     * @return returns or prints response
      */
     public function sendEmail( $recipient=null, $is_ajax=true ){
 
@@ -279,18 +318,12 @@ Class Newsletter extends zMCustomPostTypeBase{
             $recipient = $_POST['user_email'];
         }
 
-        if ( is_null( $recipient ) && ! $is_ajax )
-            return 'Please tell me who to send this email to';
-
-        // http://docs.amazonwebservices.com/AWSSDKforPHP/latest/#m=AmazonSES/send_email
         require_once( plugin_dir_path( dirname( __FILE__ ) ) .'/vendor/aws-php-sdk-1.5.11/sdk.class.php');
 
         $ses = new AmazonSES( array('key'=>$this->key,'secret'=>$this->secret ) );
 
-        $test_email = get_option('bmx_re_test_email');
-        $source = get_option('bmx_re_source');
-
-        $email = $this->getTemplate( $recipient );
+// This is a custom template! it should be a plugin, since it is specific to Events & Venues!
+$email = $this->getEventsTemplate( $recipient );
 
         $subject = $email['subject'];
         $body = $email['body'];
@@ -318,7 +351,7 @@ Class Newsletter extends zMCustomPostTypeBase{
                     )
             )
         );
-        $response = $ses->send_email( $source, $destination, $message );
+        $response = $ses->send_email( get_option('bmx_re_source'), $destination, $message );
 
         if ( $is_ajax ) {
             if ( $response->isOK() )
@@ -333,27 +366,32 @@ Class Newsletter extends zMCustomPostTypeBase{
 
     public function deployEmails(){
 
-        $emails = $this->getSubscriberList();
-        $template_id = get_option('bmx_re_emails_template_id');
-        $i = 1;
+        $message = null;
 
-        foreach( $emails as $email ){
-            print "Start of deployment: {$i}.\n";
-            print "Getting template: {$template_id}.\n";
-            $tempalte = $this->getTemplate( $email, $template_id );
+        if ( empty( $_POST['list'] ) ){
+            $message = "List is empty";
+        } else {
+            $emails = $this->getSubscriberList( $_POST['list'] );
+            $template_id = get_option('bmx_re_emails_template_id');
+            $i = 1;
 
-            print "Sending email: {$email}.\n";
-            $send = $this->sendEmail( $email, false );
-            print $send;
-            print "\n";
-            $i++;
+            foreach( $emails as $email ){
+                $message .= "Start of deployment: {$i}.\n";
+                $message .= "Getting template: {$template_id}.\n";
+                $message .= "Sending email: {$email}.\n";
+                $message .= "Status: " . $this->sendEmail( $email, false ) . "\n";
+                $message .= "\n";
+                $i++;
+            }
+
+            $post_id = $_POST['template_id'];
+
+            if ( $i > 1 ){
+                update_post_meta( $post_id, 'email_sent_time', date('Y-m-d H:i:s') );
+            }
         }
 
-        $post_id = $_POST['template_id'];
-
-        if ( $i > 1 ){
-            update_post_meta( $post_id, 'email_sent_time', date('Y-m-d H:i:s') );
-        }
+        print $message;
         die();
     }
 
@@ -366,7 +404,7 @@ Class Newsletter extends zMCustomPostTypeBase{
 
         $user_email = $_POST['user_email'];
 
-        $email = $this->getTemplate( $user_email );
+        $email = $this->getEventsTemplate( $user_email );
 
         // Yes, funky way of error checking
         if ( is_string( $email ) ){
@@ -410,30 +448,37 @@ Class Newsletter extends zMCustomPostTypeBase{
         return $wpdb->query( "SELECT * FROM {$wpdb->prefix}usermeta WHERE `meta_key` LIKE 'opt_in';" );
     }
 
+
     /**
-     * @return An array of emails from the *users table that are "opt'ed" in.
+     * @return An array of emails from the newsletterrecipient post_type
      */
-    public function getSubscriberList(){
+    public function getSubscriberList( $list=null ){
+        $args = array(
+            'post_type' => 'newsletterrecipient',
+            'posts_per_page' => -1,
+            'post_status' => 'publish',
+            'tax_query' => array(
+                array(
+                    'taxonomy' => 'list',
+                    'field' => 'id',
+                    'terms' => $list
+                    )
+                )
+            );
 
-        global $wpdb;
-        $user_ids = $wpdb->get_results( "SELECT user_id FROM `{$wpdb->prefix}usermeta` WHERE `meta_key` LIKE 'opt_in';" );
-
-        $ids = array();
-        foreach( $user_ids as $id ){
-            $ids[] = $id->user_id;
+        $emails = New WP_Query( $args );
+        $final_emails = array();
+        foreach( $emails->posts as $email ){
+            $final_emails[] = $email->post_title;
         }
 
-        $id_in = implode(',', $ids );
-
-        $tmp_emails = $wpdb->get_results( "SELECT `user_email` FROM `{$wpdb->prefix}users` WHERE `ID` IN ($id_in);" );
-
-        $emails = array();
-        foreach( $tmp_emails as $email ){
-            $emails[] = $email->user_email;
+        if ( $emails->post_count == 0 ){
+            return false;
+        } else {
+            return $final_emails;
         }
-
-        return $emails;
     }
+
 
     static public function defaultFooterText(){
         return get_option('bmx_re_emails_footer');
