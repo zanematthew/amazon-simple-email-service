@@ -7,13 +7,13 @@ Class NewsletterRecipient extends zMCustomPostTypeBase{
     private $subscribe_link;
     private $unsubscribe_link;
 
+    /**
+     * Our parent construct has the init's for register_post_type
+     * register_taxonomy and many other usefullness.
+     * @todo automate this?
+     */
     public function __construct(){
 
-        /**
-         * Our parent construct has the init's for register_post_type
-         * register_taxonomy and many other usefullness.
-         * @todo automate this?
-         */
         parent::__construct();
         self::$instance = $this;
 
@@ -23,12 +23,17 @@ Class NewsletterRecipient extends zMCustomPostTypeBase{
         $this->subscribe_link = '<a href="' . site_url() . '/newsletter" target="_blank">subscribe</a>';
 
         add_action( 'init', array( &$this, 'init' ) );
+        add_action( 'admin_init', array( &$this, 'adminInit' ) );
 
         add_action( 'wp_ajax_nopriv_optIn', array( &$this, 'optIn' ) );
         add_action( 'wp_ajax_optIn', array( &$this, 'optIn' ) );
+    }
 
+
+    public function adminInit(){
         add_action( 'wp_ajax_addRecipient', array( &$this, 'addRecipient' ) );
     }
+
 
     /**
      * Determine if recipients email address already exists in the *_posts table
@@ -42,53 +47,6 @@ Class NewsletterRecipient extends zMCustomPostTypeBase{
     }
 
 
-    /**
-     * Inserts a new recipient to the *_posts table
-     * @note To be used via AJAX!
-     * @return success message
-     */
-    public function optIn(){
-
-        Security::verifyPostSubmission( $_POST[ $this->my_cpt ] );
-
-        $email = $_POST['email'];
-
-        $duplicate = $this->isDuplicateEmail( $email );
-
-        if ( $duplicate ){
-            $class = "error";
-            $msg = $duplicate;
-        } else {
-
-            $data = array(
-                'post_title' => $email,
-                'post_status' => 'publish',
-                'post_date' =>  date( 'Y-m-d H:i:s'),
-                'post_author' => 1,
-                'post_date_gmt' => date( 'Y-m-d H:i:s'),
-                'post_type' => $this->my_cpt
-            );
-
-            $result = wp_insert_post( $data );
-
-            if ( $result ) {
-                $class = "success";
-                $msg = "Yeah, Heck Yeah! Your Signed-up, Boss! ;)";
-            } else {
-                $class = "error";
-                $msg = "Fuck me!";
-            }
-        }
-
-        $html = null;
-        $html .= '<div class="'.$class.'-container">';
-        $html .= '<div class="message">';
-        $html .= $msg;
-        $html .= '</div></div>';
-        print $html;
-        die();
-    }
-
     public function init(){
         if ( isset( $_GET['opt_out'] ) ){
             $opt_out = $this->optOut( $_GET['opt_out'] );
@@ -97,6 +55,7 @@ Class NewsletterRecipient extends zMCustomPostTypeBase{
             }
         }
     }
+
 
     public function optOut( $email=null ){
         $id = $this->recipientID( $email );
@@ -163,19 +122,46 @@ Class NewsletterRecipient extends zMCustomPostTypeBase{
      *
      * @return Array of Recipients (ID|first_name|last_name|email)
      */
-    public function recipientList(){
-        global $wpdb;
+    public function recipientList( $list=null ){
 
-        $recipients = $wpdb->get_results(  "SELECT `ID`, `post_title` FROM {$wpdb->prefix}posts WHERE `post_type` = '{$this->my_cpt}' AND post_status = 'publish';" );
-        $tmp = $final_recipients = array();
+        $final_recipients = array();
 
-        foreach( $recipients as $recipient ){
-            $tmp['ID'] = $recipient->ID;
-            $tmp['first_name'] = get_post_meta( $recipient->ID, $this->my_cpt . '_first-name', true );
-            $tmp['last_name'] = get_post_meta( $recipient->ID, $this->my_cpt . '_last-name', true );
-            $tmp['email'] = $recipient->post_title;
-            $tmp['list'] = wp_get_post_terms( $recipient->ID, 'list' );
-            $final_recipients[] = $tmp;
+        if ( empty( $list ) ){
+            global $wpdb;
+
+            $recipients = $wpdb->get_results(  "SELECT `ID`, `post_title` FROM {$wpdb->prefix}posts WHERE `post_type` = '{$this->my_cpt}' AND post_status = 'publish';" );
+            $tmp = array();
+            foreach( $recipients as $recipient ){
+                $tmp['ID'] = $recipient->ID;
+                $tmp['first_name'] = get_post_meta( $recipient->ID, $this->my_cpt . '_first-name', true );
+                $tmp['last_name'] = get_post_meta( $recipient->ID, $this->my_cpt . '_last-name', true );
+                $tmp['email'] = $recipient->post_title;
+                $tmp['list'] = wp_get_post_terms( $recipient->ID, 'list' );
+                $final_recipients[] = $tmp;
+            }
+        } else {
+            $args = array(
+                'post_type' => $this->my_cpt,
+                'posts_per_page' => -1,
+                'post_status' => 'publish',
+                'tax_query' => array(
+                    array(
+                        'taxonomy' => 'list',
+                        'field' => 'id',
+                        'terms' => $list
+                        )
+                    )
+                );
+
+            $emails = New WP_Query( $args );
+
+            foreach( $emails->posts as $email ){
+                $final_recipients[] = $email->post_title;
+            }
+
+            if ( $emails->post_count == 0 ){
+                $final_recipients = false;
+            }
         }
 
         return $final_recipients;

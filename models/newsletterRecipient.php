@@ -17,7 +17,10 @@ $recipient->post_type = array(
         'taxonomies' => array(
             'list'
             ),
-        'public' => false
+        // 'public' => false,
+        'show_ui' => false,
+        'show_in_nav_menus' => false,
+        'show_in_admin_bar' => false
     )
 );
 

@@ -47,7 +47,6 @@ Class Newsletter extends zMCustomPostTypeBase{
             'bmx_re_secret',
             'bmx_re_source',
             'bmx_re_test_email',
-            'bmx_re_emails_template_id',
             'bmx_re_emails_footer'
             );
 
@@ -147,12 +146,7 @@ Class Newsletter extends zMCustomPostTypeBase{
      */
     static public function getEventsTemplate( $user_email=null, $template_id=null ){
 
-        if ( ! isset( $_POST['template_id'] ) ){
-            $template_id = get_option( 'bmx_re_emails_template_id' );
-        } else {
-            $template_id = $_POST['template_id'];
-        }
-
+        $template_id = $_POST['template_id'];
         $template = get_post( $template_id );
 
         $subject = $template->post_title;
@@ -250,62 +244,64 @@ Class Newsletter extends zMCustomPostTypeBase{
         return $email;
     }
 
+
     /**
      * Sends a single email using AWS SES SDK
      *
      * SES Documentation: http://docs.amazonwebservices.com/AWSSDKforPHP/latest/#m=AmazonSES/send_email
+     *
+     * http://docs.aws.amazon.com/ses/latest/APIReference/API_GetSendQuota.html
+     * http://docs.aws.amazon.com/ses/latest/DeveloperGuide/increase-sending-limits.html
      *
      * @subpackage AJAX
      * @param $recipient
      * @param $is_ajax
      * @return returns or prints response
      */
-    public function sendEmail( $recipient=null, $is_ajax=true ){
+    public function sendEmail( $recipient=null, $template_id=null, $is_ajax=true ){
 
         if ( ! empty( $_POST['user_email'] ) ){
             $recipient = $_POST['user_email'];
         }
 
-        require_once( plugin_dir_path( dirname( __FILE__ ) ) .'/vendor/aws-php-sdk-1.5.11/sdk.class.php');
+        if ( ! empty( $_POST['template_id'] ) ){
+            $template_id = $_POST['template_id'];
+        }
 
+        require_once( plugin_dir_path( dirname( __FILE__ ) ) .'/vendor/aws-php-sdk-1.5.11/sdk.class.php');
         $ses = new AmazonSES( array('key'=>$this->key,'secret'=>$this->secret ) );
 
-// This is a custom template! it should be a plugin, since it is specific to Events & Venues!
-$email = $this->getEventsTemplate( $recipient );
+        // This is a custom template! it should be a plugin, since it is specific to Events & Venues!
+        // hook/filter/something here that calls custom template (plugin)
+        // $email = $this->getEventsTemplate( $recipient );
 
-        $subject = $email['subject'];
-        $body = $email['body'];
-        $plain_text = $email['plain_text'];
+        $email = get_post( $template_id );
 
         $destination = array(
-            'ToAddresses' => array(
-                $recipient // String max 50
-                )
+            'ToAddresses' => $recipient // Array|String max 50
             );
 
         $message = array(
             'Subject' => array(
-                'Data' => $subject,
+                'Data' => $email->post_title,
                 'Charset' => 'UTF-8'
                 ),
             'Body' => array(
                 'Text' => array(
-                    'Data' => $plain_text,
+                    'Data' => $email->post_excerpt,
                     'Charset' => 'UTF-8'
                     ),
                 'Html' => array(
-                    'Data' => $body,
+                    'Data' => $email->post_content,
                     'Charset' => 'UTF-8'
                     )
             )
         );
+
         $response = $ses->send_email( get_option('bmx_re_source'), $destination, $message );
 
         if ( $is_ajax ) {
-            if ( $response->isOK() )
-                print $response->isOK();
-            else
-                print $response->body->Error->Code;
+            print $response->isOK() ? $response->isOK() : $response->body->Error->Code;
             die();
         } else {
             return $response->isOK();
@@ -319,24 +315,29 @@ $email = $this->getEventsTemplate( $recipient );
         if ( empty( $_POST['list'] ) ){
             $message = "List is empty";
         } else {
-            $emails = $this->getSubscriberList( $_POST['list'] );
-            $template_id = get_option('bmx_re_emails_template_id');
-            $i = 1;
+            $r = New NewsletterRecipient;
+            $emails = $r->recipientList( $_POST['list'] );
+            $template_id = $_POST['template_id'];
 
-            foreach( $emails as $email ){
-                $message .= "Start of deployment: {$i}.\n";
-                $message .= "Getting template: {$template_id}.\n";
-                $message .= "Sending email: {$email}.\n";
-                $message .= "Status: " . $this->sendEmail( $email, false ) . "\n";
-                $message .= "\n";
-                $i++;
-            }
+            // action/filter/here
+            //
+            // $i = 1;
+            // foreach( $emails as $email ){
+            //     $message .= "Start of deployment: {$i}.\n";
+            //     $message .= "Getting template: {$template_id}.\n";
+            //     $message .= "Sending email: {$email}.\n";
+            //     $message .= "Status: " . $r->sendEmail( $email, false ) . "\n";
+            //     $message .= "\n";
+            //     $i++;
+            // }
 
-            $post_id = $_POST['template_id'];
+            // if ( $i > 1 ){
+            //     update_post_meta( $template_id, 'email_sent_time', date('Y-m-d H:i:s') );
+            // }
 
-            if ( $i > 1 ){
-                update_post_meta( $post_id, 'email_sent_time', date('Y-m-d H:i:s') );
-            }
+            $sent = $this->sendEmail( $emails, $template_id, false );
+            var_dump( $sent );
+
         }
 
         print $message;
@@ -345,29 +346,29 @@ $email = $this->getEventsTemplate( $recipient );
 
     public function previewEmail( $user_email=null ){
 
+        $message =null;
+
         if ( empty( $_POST['user_email'] ) ){
-            print 'Need a test user_email';
-            die();
-        }
-
-        $user_email = $_POST['user_email'];
-
-        $email = $this->getEventsTemplate( $user_email );
-
-        // Yes, funky way of error checking
-        if ( is_string( $email ) ){
-            print $email;
-            die();
+            $message = 'Need a test user_email';
         } else {
-            print '<style type="text/css">.temp{font-family: arial;font-size: 12px;}</style>';
-            print "<div class='temp'>";
-            print "<strong>Recipient</strong> {$user_email}<br />";
-            print "<strong>Subject</strong> {$email['subject']}<br />";
-            print "<strong>Plain Text</strong> {$email['plain_text']}<br />";
-            print "<strong style='float: left;margin-bottom: 20px;'>Body</strong>{$email['body']}";
-            print "</div>";
-            die();
+            $email = $this->getEventsTemplate( $_POST['user_email'] );
+
+            // Yes, funky way of error checking
+            if ( is_string( $email ) ){
+                $message = $email;
+            } else {
+                $message .= '<style type="text/css">.temp{font-family: arial;font-size: 12px;}</style>';
+                $message .= "<div class='temp'>";
+                $message .= "<strong>Recipient</strong> {$_POST['user_email']}<br />";
+                $message .= "<strong>Subject</strong> {$email['subject']}<br />";
+                $message .= "<strong>Plain Text</strong> {$email['plain_text']}<br />";
+                $message .= "<hr />";
+                $message .= "{$email['body']}";
+                $message .= "</div>";
+            }
         }
+        print $message;
+        die();
     }
 
 
@@ -384,48 +385,11 @@ $email = $this->getEventsTemplate( $recipient );
         $results = $wpdb->get_results( $query );
         $html = null;
         $setting_name = 'bmx_re_emails_template_id';
-        $current = get_option( $setting_name );
 
         foreach( $results as $result ){
-            $html .= '<option value="'.$result->ID.'" '.selected( $result->ID, $current, false ).'>'.$result->post_title.'</option>';
+            $html .= '<option value="'.$result->ID.'">'.$result->post_title.'</option>';
         }
         print '<select id="bmx_re_email_template_select" name="'.$setting_name.'">'.$html.'</select>';
-    }
-
-    static public function getSubscriberCount(){
-        global $wpdb;
-        return $wpdb->query( "SELECT * FROM {$wpdb->prefix}usermeta WHERE `meta_key` LIKE 'opt_in';" );
-    }
-
-
-    /**
-     * @return An array of emails from the newsletterrecipient post_type
-     */
-    public function getSubscriberList( $list=null ){
-        $args = array(
-            'post_type' => 'newsletterrecipient',
-            'posts_per_page' => -1,
-            'post_status' => 'publish',
-            'tax_query' => array(
-                array(
-                    'taxonomy' => 'list',
-                    'field' => 'id',
-                    'terms' => $list
-                    )
-                )
-            );
-
-        $emails = New WP_Query( $args );
-        $final_emails = array();
-        foreach( $emails->posts as $email ){
-            $final_emails[] = $email->post_title;
-        }
-
-        if ( $emails->post_count == 0 ){
-            return false;
-        } else {
-            return $final_emails;
-        }
     }
 
 
