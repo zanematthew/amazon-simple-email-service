@@ -125,7 +125,8 @@ Class Newsletter extends zMCustomPostTypeBase{
 
 
     public function deployView(){
-        wp_enqueue_script( 'deploy-admin', plugin_dir_url( dirname( __FILE__ ) ) . 'assets/deploy_admin.js', array('jquery') );
+        wp_enqueue_script( 'deploy-admin-srcipt', plugin_dir_url( dirname( __FILE__ ) ) . 'assets/deploy_admin.js', array('jquery') );
+        wp_enqueue_style( 'deploy-admin-style', plugin_dir_url( dirname( __FILE__ ) ) . 'assets/deploy_admin.css' );
         $this->loadTemplate( 'deploy.php', $this->views_dir );
     }
 
@@ -357,14 +358,13 @@ Class Newsletter extends zMCustomPostTypeBase{
             if ( is_string( $email ) ){
                 $message = $email;
             } else {
-                $message .= '<style type="text/css">.temp{font-family: arial;font-size: 12px;}</style>';
-                $message .= "<div class='temp'>";
+                $message .= '<style type="text/css">p{font-family: arial;font-size: 12px;}</style>';
+                $message .= "<p>";
                 $message .= "<strong>Recipient</strong> {$_POST['user_email']}<br />";
                 $message .= "<strong>Subject</strong> {$email['subject']}<br />";
-                $message .= "<strong>Plain Text</strong> {$email['plain_text']}<br />";
-                $message .= "<hr />";
+                $message .= "<strong>Plain Text</strong> {$email['plain_text']}<br /><br />";
+                $message .= "</p>";
                 $message .= "{$email['body']}";
-                $message .= "</div>";
             }
         }
         print $message;
