@@ -66,6 +66,7 @@ Class Newsletter extends zMCustomPostTypeBase{
         }
     }
 
+
     public function adminMenu(){
 
         $parent = 'edit.php?post_type='.$this->my_cpt;
@@ -86,6 +87,14 @@ Class Newsletter extends zMCustomPostTypeBase{
                 'capability' => 'manage_options',
                 'menu_slug' => 'recipients-deploy',
                 'function' => 'deployView'
+                ),
+            array(
+                'parent_slug' => $parent,
+                'page_title' => 'Stats',
+                'menu_title' => 'Stats',
+                'capability' => 'manage_options',
+                'menu_slug' => 'newsletter-stats',
+                'function' => 'statsView'
                 ),
             array(
                 'parent_slug' => $parent,
@@ -119,7 +128,7 @@ Class Newsletter extends zMCustomPostTypeBase{
     public function recipientsView(){
         wp_enqueue_script('zm-chosen-script');
         wp_enqueue_style('zm-chosen-style');
-        wp_enqueue_style('newsletterrecipient_admin-style');
+        wp_enqueue_style('recipient_admin-style');
         $this->loadTemplate( 'recipients.php', $this->views_dir );
     }
 
@@ -130,6 +139,12 @@ Class Newsletter extends zMCustomPostTypeBase{
         $this->loadTemplate( 'deploy.php', $this->views_dir );
     }
 
+
+    public function statsView(){
+        wp_enqueue_script( 'stats-admin-srcipt', plugin_dir_url( dirname( __FILE__ ) ) . 'assets/stats_admin.js', array('jquery') );
+        wp_enqueue_style( 'stats-admin-style', plugin_dir_url( dirname( __FILE__ ) ) . 'assets/stats_admin.css' );
+        $this->loadTemplate( 'stats.php', $this->views_dir );
+    }
 
     /**
      * Each user gets a custom email based on their settings, default is to
@@ -279,7 +294,7 @@ Class Newsletter extends zMCustomPostTypeBase{
         $email = get_post( $template_id );
 
         $destination = array(
-            'ToAddresses' => $recipient // Array|String max 50
+            'ToAddresses' => (array)$recipient // Array|String max 50
             );
 
         $message = array(
@@ -301,6 +316,8 @@ Class Newsletter extends zMCustomPostTypeBase{
 
         $response = $ses->send_email( get_option('bmx_re_source'), $destination, $message );
 
+print_r( $response );
+
         if ( $is_ajax ) {
             print $response->isOK() ? $response->isOK() : $response->body->Error->Code;
             die();
@@ -311,14 +328,13 @@ Class Newsletter extends zMCustomPostTypeBase{
 
     public function deployEmails(){
 
-        $message = null;
-
         if ( empty( $_POST['list'] ) ){
             $message = "List is empty";
         } else {
-            $r = New NewsletterRecipient;
+            $r = New recipient;
             $emails = $r->recipientList( $_POST['list'] );
             $template_id = $_POST['template_id'];
+            $message = null;
 
             // action/filter/here
             //
@@ -346,13 +362,11 @@ Class Newsletter extends zMCustomPostTypeBase{
     }
 
     public function previewEmail( $user_email=null ){
-
-        $message =null;
-
         if ( empty( $_POST['user_email'] ) ){
             $message = 'Need a test user_email';
         } else {
             $email = $this->getEventsTemplate( $_POST['user_email'] );
+            $message =null;
 
             // Yes, funky way of error checking
             if ( is_string( $email ) ){
@@ -377,12 +391,7 @@ Class Newsletter extends zMCustomPostTypeBase{
 
         $cpt = self::$instance->my_cpt;
 
-        $query = "SELECT `ID`, `post_title`
-        FROM {$wpdb->prefix}posts
-        WHERE `post_type` LIKE '{$cpt}'
-        AND `post_status` LIKE 'publish';";
-
-        $results = $wpdb->get_results( $query );
+        $results = $wpdb->get_results( "SELECT `ID`, `post_title` FROM {$wpdb->prefix}posts WHERE `post_type` LIKE '{$cpt}' AND `post_status` LIKE 'publish';" );
         $html = null;
         $setting_name = 'bmx_re_emails_template_id';
 
@@ -424,5 +433,21 @@ Class Newsletter extends zMCustomPostTypeBase{
             return date( 'M, j @ h:H', strtotime( $sent ) );
         else
             return "Newsletter has not been sent.";
+    }
+
+
+    public function sendStatistics(){
+        // Instantiate the class
+        require_once( plugin_dir_path( dirname( __FILE__ ) ) .'/vendor/aws-php-sdk-1.5.11/sdk.class.php');
+        $ses = new AmazonSES( array('key'=>$this->key,'secret'=>$this->secret ) );
+
+
+        $response = $ses->get_send_statistics();
+
+        // Success?
+        print '<pre>';
+        var_dump($response->isOK());
+        print_r( $response );
+        print '</pre>';
     }
 }

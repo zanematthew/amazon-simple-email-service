@@ -1,6 +1,6 @@
 <?php
 
-$recipients_obj = New newsletterRecipient;
+$recipients_obj = New recipient;
 
 ?>
 

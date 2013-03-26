@@ -1,6 +1,6 @@
 <?php
 
-Class NewsletterRecipient extends zMCustomPostTypeBase{
+Class recipient extends zMCustomPostTypeBase{
 
     private static $instance;
     private $my_cpt;
@@ -58,8 +58,7 @@ Class NewsletterRecipient extends zMCustomPostTypeBase{
 
 
     public function optOut( $email=null ){
-        $id = $this->recipientID( $email );
-        return wp_delete_post( $id );
+        return wp_delete_post( $this->recipientID( $email ) );
     }
 
 
@@ -88,6 +87,8 @@ Class NewsletterRecipient extends zMCustomPostTypeBase{
 
         if ( $this->isDuplicateEmail( $_POST['email'] ) ){
             $message = "Email already exsists";
+        } elseif ( empty( $_POST['email'] ) ) {
+            $message = "Email is empty";
         } else {
             $post_id = wp_insert_post(array(
                 'post_title' => $_POST['email'],

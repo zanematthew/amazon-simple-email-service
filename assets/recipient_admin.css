@@ -1,5 +1,12 @@
-/* 
-This file is automatically created for you. 
- It is your Admin CSS file for the recipient model. 
+.recipient-table tr input[type="checkbox"] {
+    margin: 0 10px 0 0;
+    }
 
-Created On: March 22, 2013, 12:30 am */
+.recipient-table .chzn-container-multi .chzn-choices {
+    border-color: #D8D1D1;
+    border-radius: 3px;
+    }
+
+.recipient-table .chzn-container-multi .chzn-choices .search-field .default {
+    line-height: 2em;
+    }

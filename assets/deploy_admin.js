@@ -69,7 +69,7 @@ jQuery(document).ready(function($){
 
         var list = [];
 
-        $('.deploy-meta-box-list li input[type="checkbox"]').each(function(){
+        $('.deploy-list-checkbox').each(function(){
             if ( $(this).is(':checked') ){
                 list.push( $(this).val() );
             }

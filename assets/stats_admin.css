@@ -1,0 +1,26 @@
+<div class="wrap">
+    <div id="icon-options-general" class="icon32"><br></div>
+    <h2>Stats</h2>
+    <form action="#" method="POST" id="convert_post_type_form">
+        <?php wp_nonce_field('zm_post_type_converter','security'); ?>
+        <input type="hidden" name="action" value="zm_post_type_converter" />
+        <table class="form-table">
+            <tr>
+                <th scope="row">Convert Post Type</th>
+                <td>
+                    From:
+                    <select name="from_post_type_name" id="utilities_post_types_select">
+                        <option value="">Choose a Post Type</option>
+                        <?php $post_types = get_post_types( array( '_builtin' => false ) ); foreach( $post_types as $post_type ) : ?>
+                            <option value="<?php print $post_type; ?>"><?php print $post_type; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    To: <input type="text" class="regular-text" name="to_post_type_name" />
+                    <input name="" type="submit" class="button " id="dim" value="Convert" />
+                    <p class="description">Displaying ONLY non-built in <code>post_types</code>. This is <strong>fucking permanent</strong>!</p>
+                    <div id="convert_post_type_form_target" style="display: none;"></div>
+                </td>
+            </tr>
+        </table>
+    </form>
+</div>

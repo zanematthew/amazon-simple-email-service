@@ -13,7 +13,7 @@
                     <?php $terms = get_terms( 'list', array( 'hide_empty' => false ) ) ;?>
                     <?php if ( $terms ) : ?>
                         <?php foreach( $terms as $term ) : ?>
-                            <input type="checkbox" name="list[][<?php print $term->slug; ?>]" value="<?php print $term->term_id; ?>" id="<?php print $term->slug; ?>" />
+                            <input type="checkbox" class="deploy-list-checkbox" name="list[][<?php print $term->slug; ?>]" value="<?php print $term->term_id; ?>" id="<?php print $term->slug; ?>" />
                             <label for="<?php print $term->slug;?>"><?php print $term->name; ?> (<?php print $term->count; ?>)</label>
                             <br />
                         <?php endforeach; ?>

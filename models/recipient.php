@@ -1,8 +1,8 @@
 <?php
 
-$post_type = 'newsletterrecipient'; // type MUST == class name!!!
+$post_type = 'recipient'; // type MUST == class name!!!
 
-$recipient = New NewsletterRecipient();
+$recipient = New recipient();
 $recipient->asset_url = plugin_dir_url( dirname( __FILE__ ) ) . 'assets/';
 $recipient->post_type = array(
     array(
@@ -17,10 +17,9 @@ $recipient->post_type = array(
         'taxonomies' => array(
             'list'
             ),
-        // 'public' => false,
-        'show_ui' => false,
-        'show_in_nav_menus' => false,
-        'show_in_admin_bar' => false
+        'show_ui' => 0
+        // 'show_in_nav_menus' => false,
+        // 'show_in_admin_bar' => false
     )
 );
 

@@ -44,14 +44,14 @@ function my_enqueue($hook) {
     if ( ! in_array( $hook, $pages) ) return;
 
     wp_enqueue_style( 'bootstrap-style', plugins_url('/vendor/bootstrap/css/bootstrap.min.css', __FILE__ ) );
-    wp_enqueue_script( 'script', plugins_url('/assets/newsletterrecipient_admin.js', __FILE__ ) );
+    wp_enqueue_script( 'script', plugins_url('/assets/recipient_admin.js', __FILE__ ) );
 
     $dependencies[] = 'jquery';
 
     wp_register_script( 'zm-chosen-script', plugin_dir_url( dirname(__FILE__ ) ) . 'zm-easy-cpt/vendor/chosen/chosen.jquery.min.js', $dependencies );
     wp_register_style( 'zm-chosen-style', plugin_dir_url( dirname(__FILE__ ) ) . 'zm-easy-cpt/vendor/chosen/chosen.css' );
 
-    wp_register_style( 'newsletterrecipient_admin-style', plugin_dir_url( __FILE__ ) . 'assets/newsletterrecipient_admin.css' );
+    wp_register_style( 'recipient_admin-style', plugin_dir_url( __FILE__ ) . 'assets/recipient_admin.css' );
 
     wp_enqueue_script( 'newsletter_admin-script', plugin_dir_url( __FILE__ ) . 'assets/newsletter_admin.js' );
     wp_register_style( 'newsletter_admin-style', plugin_dir_url( __FILE__ ) . 'assets/newsletter_admin.css' );
